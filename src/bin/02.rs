@@ -35,28 +35,46 @@ fn parse(input: &str) -> Vec<Game> {
     games
 }
 
-
 pub fn part_one(input: &str) -> Option<u32> {
     let games = parse(input);
-    let valid_games = games.iter().filter(|g| 
-        g.rounds.iter().all(|r|
+    let valid_games = games.iter().filter(|g| {
+        g.rounds.iter().all(|r| {
             r.get("red").cloned().unwrap_or_default() <= 12
                 && r.get("green").cloned().unwrap_or_default() <= 13
                 && r.get("blue").cloned().unwrap_or_default() <= 14
-        ));
-    
-    let sum = valid_games.map(|g|g.id).sum::<u32>();
+        })
+    });
+
+    let sum = valid_games.map(|g| g.id).sum::<u32>();
     Some(sum)
 }
 
 pub fn part_two(input: &str) -> Option<u32> {
     let games = parse(input);
-    let minimum_games = games.iter().map(|g|{
-        let red = g.rounds.iter().filter_map(|r| r.get("red")).max().unwrap_or(&1);
-        let green = g.rounds.iter().filter_map(|r| r.get("green")).max().unwrap_or(&1);
-        let blue = g.rounds.iter().filter_map(|r| r.get("blue")).max().unwrap_or(&1);
-        red * green * blue
-    }).collect::<Vec<_>>();
+    let minimum_games = games
+        .iter()
+        .map(|g| {
+            let red = g
+                .rounds
+                .iter()
+                .filter_map(|r| r.get("red"))
+                .max()
+                .unwrap_or(&1);
+            let green = g
+                .rounds
+                .iter()
+                .filter_map(|r| r.get("green"))
+                .max()
+                .unwrap_or(&1);
+            let blue = g
+                .rounds
+                .iter()
+                .filter_map(|r| r.get("blue"))
+                .max()
+                .unwrap_or(&1);
+            red * green * blue
+        })
+        .collect::<Vec<_>>();
     Some(minimum_games.iter().sum())
 }
 

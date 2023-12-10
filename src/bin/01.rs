@@ -26,7 +26,6 @@ impl Digit {
     }
 }
 
-
 fn find_digit(text: &str, digits: &[Digit]) -> Option<u32> {
     return digits
         .iter()
@@ -65,15 +64,21 @@ pub fn part_two(input: &str) -> Option<u32> {
         Digit::new("nine".to_owned(), 9),
     ]);
 
-    let digits_rev = digits2.iter().map(|it| 
-        Digit::new(it.text.chars().rev().collect::<String>(), it.value)).collect::<Vec<_>>();
+    let digits_rev = digits2
+        .iter()
+        .map(|it| Digit::new(it.text.chars().rev().collect::<String>(), it.value))
+        .collect::<Vec<_>>();
 
     let result = input
         .lines()
         .map(|it| {
             (
                 find_digit(it, digits2.as_slice()).unwrap(),
-                find_digit(it.chars().rev().collect::<String>().as_str(), digits_rev.as_slice()).unwrap(),
+                find_digit(
+                    it.chars().rev().collect::<String>().as_str(),
+                    digits_rev.as_slice(),
+                )
+                .unwrap(),
             )
         })
         .map(|fix| fix.0 * 10 + fix.1)

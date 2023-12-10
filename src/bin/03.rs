@@ -58,35 +58,39 @@ pub fn part_one(input: &str) -> Option<u32> {
     valid_parts.map(|p| p.value).sum::<u32>().into()
 }
 
-
-
 pub fn part_two(input: &str) -> Option<u32> {
     let lines = input.lines().collect::<Vec<_>>();
     let parts = parse_parts(&lines);
 
-    let gears = lines.iter().enumerate().flat_map(|(line_no, l)| {
-        l.chars().enumerate().flat_map(move |(pos, ch)| {
-            if ch == '*' {
-                Some((line_no as i32, pos as i32))
-            } else {
-                None
-            }
+    let gears = lines
+        .iter()
+        .enumerate()
+        .flat_map(|(line_no, l)| {
+            l.chars().enumerate().flat_map(move |(pos, ch)| {
+                if ch == '*' {
+                    Some((line_no as i32, pos as i32))
+                } else {
+                    None
+                }
+            })
         })
-    }).collect::<Vec<_>>();
+        .collect::<Vec<_>>();
 
     let gear_pairs = gears.iter().map(|(y, x)| {
-        parts.iter().filter(|p|
-                    (p.line-1 ..=(p.line+1)).contains(y)
-                     && (p.start-1 .. p.end+1).contains(x)
-                ).collect::<Vec<_>>()
+        parts
+            .iter()
+            .filter(|p| {
+                (p.line - 1..=(p.line + 1)).contains(y) && (p.start - 1..p.end + 1).contains(x)
+            })
+            .collect::<Vec<_>>()
     });
 
-    let result = gear_pairs.filter(|it| it.len() == 2)
-        .map(|it| it[0].value * it[1].value).sum::<u32>();
+    let result = gear_pairs
+        .filter(|it| it.len() == 2)
+        .map(|it| it[0].value * it[1].value)
+        .sum::<u32>();
 
     result.into()
-
-   
 }
 
 #[cfg(test)]
