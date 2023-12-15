@@ -1,5 +1,5 @@
-use std::collections::HashMap;
 use itertools::Itertools;
+use std::collections::HashMap;
 
 advent_of_code::solution!(12);
 
@@ -28,9 +28,9 @@ type Memento = (usize, usize);
 
 fn count_groups(
     line: &str,
-    groups: &Vec<usize>,       // the groups we need to place
-    g: usize,                  // the group we are currently placing
-    pos_in_string: usize,      // the position in the string we are currently at (we move to the right)
+    groups: &Vec<usize>,            // the groups we need to place
+    g: usize,                       // the group we are currently placing
+    pos_in_string: usize, // the position in the string we are currently at (we move to the right)
     dp: &mut HashMap<Memento, u64>, // intermediate results
 ) -> u64 {
     if let Some(count) = dp.get(&(g, pos_in_string)) {

@@ -12,10 +12,7 @@ struct Map {
 impl Map {
     fn new(str: &str, transposed: bool) -> Map {
         let bytes = str.lines().map(|l| l.as_bytes().to_vec()).collect();
-        Map {
-            bytes,
-            transposed,
-        }
+        Map { bytes, transposed }
     }
 
     fn get(&self, row: i32, col: i32) -> u8 {
@@ -52,10 +49,10 @@ impl Map {
     }
 
     fn test(&self, left_start: usize) -> bool {
-        if left_start >= self.get_width() -1 {
-            return false
+        if left_start >= self.get_width() - 1 {
+            return false;
         }
-        
+
         for row in 0..self.get_height() {
             let mut left = left_start as i32;
             let mut right = left_start as i32 + 1;
@@ -88,60 +85,59 @@ impl Map {
 pub fn part_one(input: &str) -> Option<u32> {
     let sum = input
         .split("\n\n")
-        .map(|it| {
-            (
-                Map::new(it, false),
-                Map::new(it, true),
-            )
-        })
+        .map(|it| (Map::new(it, false), Map::new(it, true)))
         .map(|(lines, cols)| {
             for l in 0..lines.get_width() {
                 if lines.test(l) {
-                    return (l+1) as u32;
+                    return (l + 1) as u32;
                 }
             }
             for l in 0..cols.get_width() {
                 if cols.test(l) {
-                    return (100 * (l+1)) as u32;
+                    return (100 * (l + 1)) as u32;
                 }
             }
-            panic!("no solution found:\n{}", lines.bytes.iter().map(|it| String::from_utf8(it.clone()).unwrap()).collect::<Vec<String>>().join("\n"));
-        }).sum();
+            panic!(
+                "no solution found:\n{}",
+                lines
+                    .bytes
+                    .iter()
+                    .map(|it| String::from_utf8(it.clone()).unwrap())
+                    .collect::<Vec<String>>()
+                    .join("\n")
+            );
+        })
+        .sum();
     Some(sum)
 }
 
 pub fn part_two(input: &str) -> Option<u32> {
     let sum = input
         .split("\n\n")
-        .map(|it| {
-            (
-                Map::new(it, false),
-                Map::new(it, true),
-            )
-        })
+        .map(|it| (Map::new(it, false), Map::new(it, true)))
         .map(|(mut lines, mut cols)| {
             for x in 0..lines.get_width() {
                 for y in 0..lines.get_height() {
-                    
                     lines.flip_abs(y, x);
                     for l in 0..lines.get_width() {
                         if lines.test(l) {
-                            return (l+1) as u32;
+                            return (l + 1) as u32;
                         }
                     }
                     lines.flip_abs(y, x);
-                    
+
                     cols.flip_abs(y, x);
                     for l in 0..cols.get_width() {
                         if cols.test(l) {
-                            return (100 * (l+1)) as u32;
+                            return (100 * (l + 1)) as u32;
                         }
                     }
                     cols.flip_abs(y, x);
                 }
             }
             unreachable!()
-    }).sum();   
+        })
+        .sum();
     Some(sum)
 }
 
@@ -150,7 +146,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_example_one(){
+    fn test_example_one() {
         let str = r#"#.##..##.
 ..#.##.#.
 ##......#
@@ -191,8 +187,8 @@ mod tests {
 .##.##.##.#
 .##.##.##.#"#;
 
-    let map = Map::new(str, true);
-    assert!(map.test(2))
+        let map = Map::new(str, true);
+        assert!(map.test(2))
     }
 
     #[test]
