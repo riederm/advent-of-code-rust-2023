@@ -53,13 +53,12 @@ impl Map {
             return false;
         }
 
-        let left_start = left_start as i32;
-        for row in 0..self.get_height() as i32 {
-            let mut left = left_start;
-            let mut right = left_start + 1;
+        for row in 0..self.get_height() {
+            let mut left = left_start as i32;
+            let mut right = left_start as i32 + 1;
             while left >= 0 && right < self.get_width() as i32 {
-                let left_value = self.get(row, left);
-                let right_value = self.get(row, right);
+                let left_value = self.get(row as i32, left);
+                let right_value = self.get(row as i32, right);
 
                 if !(left_value == JOKER || right_value == JOKER || left_value == right_value) {
                     return false;
@@ -86,20 +85,27 @@ impl Map {
 pub fn part_one(input: &str) -> Option<u32> {
     let sum = input
         .split("\n\n")
-        .map(|it| Map::new(it, false))
-        .map(|mut map| {
-            (0..map.get_width())
-                // look for mirror
-                .find(|it| map.test(*it))
-                .map(|it| (it + 1) as u32)
-                .unwrap_or_else(|| {
-                    // transpose and look for mirror
-                    map.transposed = true;
-                    (0..map.get_width())
-                        .find(|it| map.test(*it))
-                        .map(|it| 100 * (it + 1) as u32)
-                        .unwrap()
-                })
+        .map(|it| (Map::new(it, false), Map::new(it, true)))
+        .map(|(lines, cols)| {
+            for l in 0..lines.get_width() {
+                if lines.test(l) {
+                    return (l + 1) as u32;
+                }
+            }
+            for l in 0..cols.get_width() {
+                if cols.test(l) {
+                    return (100 * (l + 1)) as u32;
+                }
+            }
+            panic!(
+                "no solution found:\n{}",
+                lines
+                    .bytes
+                    .iter()
+                    .map(|it| String::from_utf8(it.clone()).unwrap())
+                    .collect::<Vec<String>>()
+                    .join("\n")
+            );
         })
         .sum();
     Some(sum)
@@ -108,35 +114,21 @@ pub fn part_one(input: &str) -> Option<u32> {
 pub fn part_two(input: &str) -> Option<u32> {
     let sum = input
         .split("\n\n")
-        .map(|it| Map::new(it, false))
-        .map(|mut map| {
-            let horizontal_solution = (0..map.get_width())
-                // look for mirror
-                .find(|it| map.test(*it))
-                .map(|it| (map, it, false));
-            if horizontal_solution.is_none() {
-                // transpose and look for mirror
-                map.transposed = true;
-                (0..map.get_width())
-                .find(|it| map.test(*it))
-                .map(|it| (map, it, true))
-                .unwrap()
-            }else{
-                horizontal_solution.unwrap()
-            }})
-        .map(|(mut map, old, old_transposed)| {
-            for x in 0..map.get_height() {
-                for y in 0..map.get_width() {
-                    map.flip_abs(x, y);
-                    for l in 0..map.get_width() {
-                        if (old_transposed || old != l) && map.test(l) {
+        .map(|it| (Map::new(it, false), Map::new(it, true)))
+        .map(|(mut lines, mut map)| {
+            for x in 0..lines.get_width() {
+                for y in 0..lines.get_height() {
+                    lines.flip_abs(y, x);
+                    for l in 0..lines.get_width() {
+                        if lines.test(l) {
                             return (l + 1) as u32;
                         }
                     }
+                    lines.flip_abs(y, x);
 
-                    map.transposed = true;
+                    map.flip_abs(y, x);
                     for l in 0..map.get_width() {
-                        if (!old_transposed || old != l) && map.test(l) {
+                        if map.test(l) {
                             return (100 * (l + 1)) as u32;
                         }
                     }
@@ -144,7 +136,7 @@ pub fn part_two(input: &str) -> Option<u32> {
                     map.flip_abs(x, y);
                 }
             }
-            unreachable!();
+            unreachable!()
         })
         .sum();
     Some(sum)
