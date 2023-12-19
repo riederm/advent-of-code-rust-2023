@@ -1,131 +1,24 @@
-use std::{
-    collections::{BTreeSet, HashMap, HashSet},
-    iter::Filter,
-};
-
-use itertools::Itertools;
-
+use std::collections::{HashMap, BinaryHeap};
 advent_of_code::solution!(17);
-
-type AbsPoint = Point;
-type Direction = &'static Point;
-
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-struct Step {
-    direction: Direction,
-    position: AbsPoint,
-    options: Vec<Direction>,
-    same_dir_steps: i32,
-}
-
-impl Step {
-    fn new(direction: Direction, position: AbsPoint, options: Vec<Direction>, same_dir_steps: i32) -> Self {
-        Self {
-            direction,
-            position,
-            options,
-            same_dir_steps,
-        }
-    }
-}
 
 static NORTH: Point = Point { x: 0, y: -1};
 static SOUTH: Point = Point { x: 0, y: 1 };
 static WEST: Point = Point { x: -1, y: 0 };
 static EAST: Point = Point { x: 1, y: 0 };
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 struct Point {
     x: i32,
     y: i32,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-enum Orientation {
-    Horizontal,
-    Vertical,
-}
-
-#[derive(Default, Debug, Clone)]
-struct Path {
-    elements: Vec<Step>,
-    elements_set: HashSet<Step>,
-}
-
-impl Path {
-    fn add(&mut self, element: Step) {
-        self.elements.push(element.clone());
-        self.elements_set.insert(element);
-    }
-
-    fn remove_last(&mut self) {
-        let e = self.elements.pop();
-        if let Some(e) = e {
-            self.elements_set.remove(&e);
-        }
-    }
-
-    fn len(&self) -> usize {
-        self.elements.len()
-    }
-
-    fn iter(&self) -> std::slice::Iter<Step> {
-        self.elements.iter()
-    }
-
-    fn get_number_of_same_directions(&self) -> i32 {
-        let mut count = 0;
-        let mut last_direction = None;
-        for e in self.elements.iter().rev().take(3) {
-            if let Some(last_direction) = last_direction {
-                if last_direction == e.direction {
-                    count += 1;
-                } else {
-                    break;
-                }
-            } else {
-                last_direction = Some(e.direction);
-                count += 1;
-            }
-        }
-        count
-    }
-}
-
 static DIRECTIONS: [Point; 4] = [NORTH, SOUTH, WEST, EAST];
-
-struct Walker {
-    position: Point,
-    path: Path,
-    heat: u32,
-    best_heat: u32,
-    best_path: Option<Path>,
-}
 
 impl Point {
     fn add(&self, other: &Point) -> Point {
         Point {
             x: self.x + other.x,
             y: self.y + other.y,
-        }
-    }
-
-    fn sub(&self, other: &Point) -> Point {
-        Point {
-            x: self.x - other.x,
-            y: self.y - other.y,
-        }
-    }
-
-    fn dist(&self, other: &Point) -> u32 {
-        ((self.x - other.x).abs() + (self.y - other.y).abs()) as u32
-    }
-
-    fn orientation(&self) -> Orientation {
-        if self.x == 0 {
-            Orientation::Vertical
-        } else {
-            Orientation::Horizontal
         }
     }
 
@@ -146,52 +39,13 @@ impl Point {
             _  => "X",
         }.to_string()
     }
-}
 
-impl Walker {
-    fn new(position: Point) -> Self {
-        Self {
-            position,
-            path: Path::default(),
-            heat: 0,
-            best_heat: u32::MAX,
-            best_path: None
+    fn scale(&self, factor: i32) -> Point {
+        Point {
+            x: self.x * factor,
+            y: self.y * factor,
         }
     }
-
-    fn get_illegal_orientation(&self) -> Option<Orientation> {
-        if self.path.len() < 3 {
-            return None;
-        }
-        let mut i = self.path.iter().rev();
-        let (l1, l2, l3) = (
-            i.next().unwrap().direction.orientation(),
-            i.next().unwrap().direction.orientation(),
-            i.next().unwrap().direction.orientation(),
-        );
-
-        if l1 == l2 && l2 == l3 {
-            Some(l1)
-        } else {
-            None
-        }
-    }
-
-    fn get_options(&self, map: &Map) -> Vec<Direction> {
-        let illegal: Option<Orientation> = self.get_illegal_orientation();
-        let last_direction = self.path.iter().rev().last().map(|s| s.direction);
-        DIRECTIONS
-            .iter()
-            .filter(|d| illegal.map(|id| d.orientation() != id).unwrap_or(true))
-            .filter(|d| map.is_inside(&self.position.add(d)))
-            // .filter(|d| {
-            //     last_direction
-            //         .map(|p| !p.is_opposite_of(d))
-            //         .unwrap_or(true)
-            // })
-            .collect_vec()
-    }
-
 }
 
 struct Map {
@@ -230,57 +84,61 @@ impl Map {
         unreachable!()
     }
 
-    fn is_finished(&self, p: &Point) -> bool {
-        p.x == self.width - 1 && p.y == self.height - 1
-    }
 }
 
-fn walk(walker: &mut Walker, map: &Map, dp: &mut HashMap<Step, u32>) {
-    if map.is_finished(&walker.position) && walker.heat < walker.best_heat {
-        println!(
-            "Found path with {} steps, heat {}",
-            walker.path.len(),
-            walker.heat
-        );
-        walker.best_heat = walker.heat.min(walker.best_heat);
-        walker.best_path = Some(walker.path.clone());
-    }
+static START_CAME_FROM : Point = Point { x: 0, y: 0 };
 
-    let options = walker.get_options(map);
-    let same_direction = walker.path.get_number_of_same_directions();
-    for direction in &options {
-        //prepare step
-        let next_pos = walker.position.add(direction);
-        let next_step = Step::new(direction, next_pos, options.clone(), same_direction);
+// (cost, destination, direction we came from)
+type QueueItem = (i32, (Point, &'static Point));
 
-        let h = map.get(&walker.position) as u32;
-        let next_heat = h + walker.heat;
-        let prev_pos = walker.path.iter().rev().nth(1).map(|it| it.position).unwrap_or_else(|| Point::new(-1,-1));
+fn a_star(start: Point, end: Point, map: &Map) -> i32{
+    let mut queue : BinaryHeap<QueueItem> = BinaryHeap::new();
 
-        if next_pos.ne(&prev_pos) && next_heat < walker.best_heat && *dp.get(&next_step).unwrap_or(&u32::MAX) > next_heat
-        {
-            walker.heat = next_heat;
-            
-            dp.insert(next_step.clone(), walker.heat);
-            walker.position = next_step.position;
-            walker.path.add(next_step);
+    let mut costs = HashMap::new();
+     // special came from for the start
+    queue.push((0i32, (start, &START_CAME_FROM)));
+    costs.insert((start, &START_CAME_FROM), 0);
+    let mut best_cost = i32::MAX;
+    while let Some((cost, (pos, coming_from))) = queue.pop() {
+        let cost = cost.abs();
+        if pos == end && cost < best_cost{
+            best_cost = cost;
+            println!("Found path with cost {}", cost);
+            break;
+        }else if cost > best_cost{
+            continue;
+        }
 
-            walk(walker, map, dp);
-
-            walker.heat -= h;
-            walker.path.remove_last();
-            walker.position = walker.position.sub(direction);
+        for d in &DIRECTIONS {
+            // if we came from the same direction, we already tried the 1,2,3 steps, so skip
+            // and we cannot reverse
+            if d.eq(coming_from) || d.is_opposite_of(coming_from) {
+                continue;
+            }
+            let mut cumulative_cost = cost;
+            // eagerly try all 3 steps and keep the direction in mind,
+            // so we dont retry the same direction on this field later
+            for steps in 1..=3 {
+                let next_d = d.scale(steps);
+                let next_pos = pos.add(&next_d);
+                let known_cost = costs.get(&(next_pos, d)).unwrap_or(&i32::MAX).abs();
+                if cumulative_cost < best_cost && map.is_inside(&next_pos) && known_cost > cumulative_cost{
+                    cumulative_cost += map.get(&next_pos) as i32;
+                    // remember that we entered next_pos from direction d with these costs
+                    costs.insert((next_pos, d), cumulative_cost);
+                    queue.push((-cumulative_cost, (next_pos, d)));
+                }
+            }
         }
     }
+    best_cost
 }
 
 pub fn part_one(input: &str) -> Option<u32> {
     let m = Map::new(input);
-    let mut w = Walker::new(Point { x: 0, y: 0 });
-    let mut dp = HashMap::new();
-    walk(&mut w, &m, &mut dp);
-    dbg!(w.best_path.map(|p| p.elements.iter().map(|it| it.direction.get_name()).collect_vec()));
-    Some(w.best_heat)
+
+    let best = a_star(Point::new(0, 0), Point::new(m.width-1, m.height-1), &m);
+    Some(best as u32)
 }
 
 pub fn part_two(input: &str) -> Option<u32> {
@@ -290,52 +148,6 @@ pub fn part_two(input: &str) -> Option<u32> {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-
-    #[test]
-    fn test_illegal_moves() {
-        let data = advent_of_code::template::read_file("examples", DAY);
-        let m = Map::new(data.as_str());
-        let w = Walker::new(Point { x: 0, y: 0 });
-        let options = w.get_options(&m);
-
-        assert_eq!(vec![&SOUTH, &EAST], options);
-    }
-
-    #[test]
-    fn test_illegal_moves2() {
-        let data = advent_of_code::template::read_file("examples", DAY);
-        let m = Map::new(data.as_str());
-        let w = Walker::new(Point { x: 2, y: 2 });
-        let options = w.get_options(&m);
-
-        assert_eq!(vec![&NORTH, &SOUTH, &WEST, &EAST], options);
-    }
-
-    #[test]
-    fn test_illegal_moves3() {
-        let data = advent_of_code::template::read_file("examples", DAY);
-        let m = Map::new(data.as_str());
-        let mut w = Walker::new(Point { x: 2, y: 2 });
-
-        w.path.add(Step::new(&WEST, w.position.add(&WEST), vec![], 1)); // 1,2
-        let options = w.get_options(&m);
-        // make sure that back to north is not part of it
-        assert_eq!(vec![&NORTH, &SOUTH, &WEST], options);
-    }
-
-    // #[test]
-    // fn test_illegal_moves4() {
-    //     let data = advent_of_code::template::read_file("examples", DAY);
-    //     let m = Map::new(data.as_str());
-    //     let mut w = Walker::new(Point { x: 5, y: 5 });
-
-    //     w.path.add(Step::new(&WEST, w.position.add(&WEST), vec![])); 
-    //     w.path.add(Step::new(&WEST, w.position.add(&WEST), vec![])); 
-    //     let options = w.get_options(&m);
-    //     // make sure that back to north is not part of it
-    //     assert_eq!(vec![&NORTH, &SOUTH], options);
-    // }
 
     #[test]
     fn test_part_one() {
