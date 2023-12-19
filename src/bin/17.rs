@@ -1,10 +1,6 @@
-use std::collections::{HashMap, BinaryHeap};
+use core::panic;
+use std::collections::{BinaryHeap, HashMap};
 advent_of_code::solution!(17);
-
-static NORTH: Point = Point { x: 0, y: -1};
-static SOUTH: Point = Point { x: 0, y: 1 };
-static WEST: Point = Point { x: -1, y: 0 };
-static EAST: Point = Point { x: 1, y: 0 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 struct Point {
@@ -12,7 +8,12 @@ struct Point {
     y: i32,
 }
 
-static DIRECTIONS: [Point; 4] = [NORTH, SOUTH, WEST, EAST];
+static DIRECTIONS: [Point; 4] = [
+    Point { x: 0, y: -1 }, //N
+    Point { x: 0, y: 1 },  //S
+    Point { x: -1, y: 0 }, //W
+    Point { x: 1, y: 0 },  //E 
+];
 
 impl Point {
     fn add(&self, other: &Point) -> Point {
@@ -28,16 +29,6 @@ impl Point {
 
     fn new(x: i32, y: i32) -> Point {
         Point { x, y }
-    }
-
-    fn get_name(&self) -> String {
-        match self {
-            _ if self.eq(&NORTH) => "^",
-            _ if self.eq(&SOUTH) => "v",
-            _ if self.eq(&EAST) => ">",
-            _ if self.eq(&WEST) => "<",
-            _  => "X",
-        }.to_string()
     }
 
     fn scale(&self, factor: i32) -> Point {
@@ -81,31 +72,30 @@ impl Map {
         if self.is_inside(p) {
             return self.data[p.y as usize][p.x as usize];
         }
-        unreachable!()
+        panic!("Point ({},{}) is outside of map", p.x, p.y);
     }
-
 }
 
-static START_CAME_FROM : Point = Point { x: 0, y: 0 };
+static START_CAME_FROM_DIR: Point = Point { x: 0, y: 0 };
 
 // (cost, destination, direction we came from)
 type QueueItem = (i32, (Point, &'static Point));
 
-fn a_star(start: Point, end: Point, map: &Map) -> i32{
-    let mut queue : BinaryHeap<QueueItem> = BinaryHeap::new();
+fn a_star(start: Point, end: Point, map: &Map, min_steps: i32, max_steps: i32) -> i32 {
+    let mut queue: BinaryHeap<QueueItem> = BinaryHeap::new();
 
     let mut costs = HashMap::new();
-     // special came from for the start
-    queue.push((0i32, (start, &START_CAME_FROM)));
-    costs.insert((start, &START_CAME_FROM), 0);
+    // special came from for the start
+    queue.push((0i32, (start, &START_CAME_FROM_DIR)));
+    costs.insert((start, &START_CAME_FROM_DIR), 0);
     let mut best_cost = i32::MAX;
     while let Some((cost, (pos, coming_from))) = queue.pop() {
         let cost = cost.abs();
-        if pos == end && cost < best_cost{
+        if pos == end && cost < best_cost {
             best_cost = cost;
             println!("Found path with cost {}", cost);
             break;
-        }else if cost > best_cost{
+        } else if cost > best_cost {
             continue;
         }
 
@@ -115,18 +105,21 @@ fn a_star(start: Point, end: Point, map: &Map) -> i32{
             if d.eq(coming_from) || d.is_opposite_of(coming_from) {
                 continue;
             }
-            let mut cumulative_cost = cost;
-            // eagerly try all 3 steps and keep the direction in mind,
+            let mut next_costs = cost;
+            // eagerly try all possible steps into the same direction and keep the direction in mind,
             // so we dont retry the same direction on this field later
-            for steps in 1..=3 {
+            for steps in 1..=max_steps {
                 let next_d = d.scale(steps);
                 let next_pos = pos.add(&next_d);
-                let known_cost = costs.get(&(next_pos, d)).unwrap_or(&i32::MAX).abs();
-                if cumulative_cost < best_cost && map.is_inside(&next_pos) && known_cost > cumulative_cost{
-                    cumulative_cost += map.get(&next_pos) as i32;
-                    // remember that we entered next_pos from direction d with these costs
-                    costs.insert((next_pos, d), cumulative_cost);
-                    queue.push((-cumulative_cost, (next_pos, d)));
+                if map.is_inside(&next_pos) {
+                    let known_cost = costs.get(&(next_pos, d)).unwrap_or(&i32::MAX).abs();
+                    next_costs += map.get(&next_pos) as i32;
+
+                    // skip illegal steps (bart b), skip if we already know a better solution
+                    if steps >= min_steps && next_costs < best_cost && known_cost > next_costs {
+                        costs.insert((next_pos, d), next_costs);
+                        queue.push((-next_costs, (next_pos, d)));
+                    }
                 }
             }
         }
@@ -137,12 +130,26 @@ fn a_star(start: Point, end: Point, map: &Map) -> i32{
 pub fn part_one(input: &str) -> Option<u32> {
     let m = Map::new(input);
 
-    let best = a_star(Point::new(0, 0), Point::new(m.width-1, m.height-1), &m);
+    let best = a_star(
+        Point::new(0, 0),
+        Point::new(m.width - 1, m.height - 1),
+        &m,
+        1,
+        3,
+    );
     Some(best as u32)
 }
 
 pub fn part_two(input: &str) -> Option<u32> {
-    None
+    let m = Map::new(input);
+    let best = a_star(
+        Point::new(0, 0),
+        Point::new(m.width - 1, m.height - 1),
+        &m,
+        4,
+        10,
+    );
+    Some(best as u32)
 }
 
 #[cfg(test)]
@@ -152,12 +159,12 @@ mod tests {
     #[test]
     fn test_part_one() {
         let result = part_one(&advent_of_code::template::read_file("examples", DAY));
-        assert_eq!(result, None);
+        assert_eq!(result, Some(102));
     }
 
     #[test]
     fn test_part_two() {
         let result = part_two(&advent_of_code::template::read_file("examples", DAY));
-        assert_eq!(result, None);
+        assert_eq!(result, Some(94));
     }
 }
