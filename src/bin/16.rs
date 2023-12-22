@@ -61,7 +61,6 @@ impl Map {
     fn is_inside(&self, x: i32, y: i32) -> bool {
         x >= 0 && x < self.width && y >= 0 && y < self.height
     }
-
 }
 
 pub fn part_one(input: &str) -> Option<u32> {
@@ -75,7 +74,7 @@ fn simulate(beam: Beam, m: &Map) -> u32 {
     let mut seen = HashSet::new();
 
     while !beams.is_empty() {
-        let mut next_beams = Vec::with_capacity(beams.len()*2);
+        let mut next_beams = Vec::with_capacity(beams.len() * 2);
         beams.into_iter().for_each(|mut beam| {
             beam.step();
             match m.get(beam.x, beam.y) {
@@ -122,15 +121,23 @@ fn simulate(beam: Beam, m: &Map) -> u32 {
 
 pub fn part_two(input: &str) -> Option<u32> {
     let m = Map::new(input);
-    
+
     let left_to_right = (0..m.height).map(|y| Beam::new(-1, y, Direction::Right));
     let rigth_to_left = (0..m.height).map(|y| Beam::new(m.width, y, Direction::Left));
     let top_down = (0..m.width).map(|x| Beam::new(x, -1, Direction::Down));
     let bottom_up = (0..m.width).map(|x| Beam::new(x, m.height, Direction::Up));
 
-    let all = left_to_right.chain(rigth_to_left).chain(top_down).chain(bottom_up).collect_vec();
+    let all = left_to_right
+        .chain(rigth_to_left)
+        .chain(top_down)
+        .chain(bottom_up)
+        .collect_vec();
     dbg!(all.len());
-    let max = all.into_iter().map(|it| simulate(it, &m)).max().unwrap_or(0);
+    let max = all
+        .into_iter()
+        .map(|it| simulate(it, &m))
+        .max()
+        .unwrap_or(0);
     Some(max)
 }
 

@@ -12,7 +12,7 @@ static DIRECTIONS: [Point; 4] = [
     Point { x: 0, y: -1 }, //N
     Point { x: 0, y: 1 },  //S
     Point { x: -1, y: 0 }, //W
-    Point { x: 1, y: 0 },  //E 
+    Point { x: 1, y: 0 },  //E
 ];
 
 impl Point {

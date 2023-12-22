@@ -1,6 +1,5 @@
 use std::{collections::HashMap, str::FromStr, string::ParseError};
 
-use itertools::Itertools;
 use regex::Regex;
 
 advent_of_code::solution!(19);
@@ -108,17 +107,10 @@ fn process(part: &Part, instructions: &HashMap<String, Instruction>) -> bool {
                                 None
                             }
                         }
-                        "=" => {
-                            if variable_value == value {
-                                Some(action)
-                            } else {
-                                None
-                            }
-                        }
                         _ => panic!("Unknown operator {}", operator),
                     };
 
-                    if let (Some(action)) = target {
+                    if let Some(action) = target {
                         match action.as_str() {
                             "A" => return true,
                             "R" => return false,
@@ -159,12 +151,97 @@ pub fn part_one(input: &str) -> Option<u32> {
         .map(|i| (i.name.clone(), i))
         .collect::<HashMap<String, Instruction>>();
     let accepted = parts.iter().filter(|part| process(part, &instructions));
-    let result : u32 = accepted.map(|part| part.score() as u32).sum();
+    let result: u32 = accepted.map(|part| part.score() as u32).sum();
     Some(result)
 }
 
-pub fn part_two(input: &str) -> Option<u32> {
-    None
+#[derive(PartialEq, Debug, Clone)]
+struct SolutionSpace {
+    variables: HashMap<String, (i32, i32)>,
+}
+
+impl SolutionSpace {
+    fn new() -> Self {
+        SolutionSpace {
+            variables: HashMap::from_iter([
+                ("x".to_string(), (1, 4000)),
+                ("m".to_string(), (1, 4000)),
+                ("a".to_string(), (1, 4000)),
+                ("s".to_string(), (1, 4000)),
+            ]),
+        }
+    }
+
+    fn get_number_of_solutions(&self) -> u64 {
+        self.variables
+            .values()
+            .map(|(l, u)| ((u - l + 1) as u64).max(0u64))
+            .product()
+    }
+}
+
+fn reduce(
+    mut space: SolutionSpace,
+    instructions: &HashMap<String, Instruction>,
+    current: &str,
+    path: Vec<String>,
+) -> u64 {
+    match current {
+        "A" => space.get_number_of_solutions(),
+        "R" => 0,
+        rule => {
+            let instruction = instructions.get(rule).unwrap();
+            let mut sum = 0u64;
+            for r in &instruction.rules {
+                match r {
+                    Rule::Condition(variable, operator, value, target) => {
+                        let mut yes_space = space.clone();
+                        let yes_range = yes_space.variables.get_mut(variable).unwrap();
+                        match operator.as_str() {
+                            ">" => {
+                                yes_range.0 = std::cmp::max(yes_range.0, *value + 1);
+                                let no_range = space.variables.get_mut(variable).unwrap();
+                                no_range.1 = std::cmp::min(no_range.1, *value);
+                            }
+                            "<" => {
+                                yes_range.1 = std::cmp::min(yes_range.1, *value - 1);
+                                let no_range = space.variables.get_mut(variable).unwrap();
+                                no_range.0 = std::cmp::max(no_range.0, *value);
+                            }
+                            _ => panic!("Unknown operator {}", operator),
+                        }
+
+                        // yes jump
+                        let mut path = path.clone();
+                        path.push(target.clone());
+                        sum += reduce(yes_space, instructions, target.as_str(), path);
+                    }
+                    Rule::Jump(action) => {
+                        let mut path = path.clone();
+                        path.push(action.clone());
+                        sum += reduce(space.clone(), instructions, action.as_str(), path);
+                    }
+                }
+            }
+            sum
+        }
+    }
+}
+
+pub fn part_two(input: &str) -> Option<u64> {
+    let (instructions_str, _) = input.split_once("\n\n").unwrap();
+    let instructions = instructions_str
+        .lines()
+        .map(|line| line.parse::<Instruction>().unwrap())
+        .collect::<Vec<Instruction>>();
+
+    let instructions = instructions
+        .into_iter()
+        .map(|i| (i.name.clone(), i))
+        .collect::<HashMap<String, Instruction>>();
+
+    let path = vec!["in".to_string()];
+    Some(reduce(SolutionSpace::new(), &instructions, "in", path))
 }
 
 #[cfg(test)]
@@ -209,6 +286,8 @@ mod tests {
         );
     }
 
+    // 10354173786531281 too high
+
     #[test]
     fn test_part_one() {
         let result = part_one(&advent_of_code::template::read_file("examples", DAY));
@@ -218,6 +297,13 @@ mod tests {
     #[test]
     fn test_part_two() {
         let result = part_two(&advent_of_code::template::read_file("examples", DAY));
-        assert_eq!(result, None);
+        assert_eq!(result, Some(167409079868000));
+    }
+
+    #[test]
+    fn xxx() {
+        let r = 4000u32..4001u32;
+        println!("{:?}", r.len());
+        println!("{:?}", r.end - r.start);
     }
 }
